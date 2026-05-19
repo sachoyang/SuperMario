@@ -60,7 +60,7 @@
 ---
 
 ## 🛠️ 개발 환경 (Environment)
-* **Engine:** Unity 6 (6.3 LTS)
+* **Engine:** Unity 2022 (2022.3.62f3)
 * **Language:** C#
 * **Platform:** PC (Windows)
 
