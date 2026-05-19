@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: super_mario
+  m_Controller: {fileID: 9100000, guid: 682510c8bed48684b97e52bfd0ed57c9, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 64a635a332dc7d0499e96e7824ebdcf8, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: d0e94ceb16fa6d5479eb094842903b26, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 5ddb8f93057115e4082356503025f24d, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 5a2f27587aa1bdb4fb8fbb173cb12afa, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: d21b0879e3eff0540af0c4f48b2efaed, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: afd415a2586ac6945849ffaf132bdd07, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 2aa918f4cbf3b8f4dad7947952f9cb5e, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 1d6dcaf219d0ee849a991addbff0db96, type: 2}
