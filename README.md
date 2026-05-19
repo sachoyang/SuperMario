@@ -1,6 +1,9 @@
 # 🍄 유니티 2D 슈퍼마리오 브라더스 (Super Mario Bros. Unity Clone)
 
-![SuperMario_Thumbnail](https://via.placeholder.com/800x400?text=Super+Mario+Bros+Unity+Clone) 원작 패미컴(NES) '슈퍼마리오 브라더스(1985)'의 감성과 디테일, 그리고 물리법칙을 Unity 엔진을 사용하여 완벽하게 재현한 2D 플랫포머 게임입니다.
+![SuperMario_Thumbnail]
+<img width="256" height="240" alt="title_screen" src="https://github.com/user-attachments/assets/be5786f4-0c99-4f98-8a97-29e72ba37d65" />
+
+원작 패미컴(NES) '슈퍼마리오 브라더스(1985)'의 감성과 디테일, 그리고 물리법칙을 Unity 엔진을 사용하여 완벽하게 재현한 2D 플랫포머 게임입니다.
 
 ## 🌟 주요 기능 및 특징 (Key Features)
 
