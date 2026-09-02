@@ -30,6 +30,7 @@ public class MarioCtrl : MonoBehaviour
     [Header("Star Invincibility")]
     public bool isStarInvincible = false; // 현재 별 먹은 상태인지 체크
     public float starDuration = 10f;      // 무적 지속 시간 (10초)
+    private Coroutine starRoutine;        // 별 무적 코루틴 참조 (중복 획득 시 이것만 정지)
 
     // 유니티 밖에서 준비한 3개의 전체 스프라이트 시트(그림 파일)를 넣습니다.
     // 인스펙터에서 0:레드, 1:그린, 2:블랙 순서로 넣어주세요.
@@ -324,28 +325,11 @@ public class MarioCtrl : MonoBehaviour
 
             jump = false;
 
-            // 공중/바닥을 if문으로 나누지 않고 중력을 무조건 계산합니다!
-            // 올라가는 중이고, 점프 키를 꾹 누르고 있고, 공중일 때만 가벼운 중력 적용
-            if (vel.y > 0 && isJumpButtonHeld && !grounded)
-            {
-                currentGravity = currentGravityHold;
-            }
-            else
-            {
-                currentGravity = currentGravityBase; // 떨어질 때나 평상시엔 무거운 중력
-            }
-
-            // 중력은 매 프레임 무조건 빼줍니다. (콜라이더가 바닥에 완벽히 밀착되게 밀어줌)
-            vel.y -= currentGravity * Time.fixedDeltaTime;
-            vel.y = Mathf.Max(vel.y, -MAX_FALL); // 최대 낙하 속도 제한
-
-            // 땅에 닿아있으면 기본 중력 상태로 리셋만 해줍니다.
-            if (grounded && !jump)
-            {
-                currentGravityBase = STOP_FALL;
-                // 원래 있던 vel.y = 0; 을 지웠습니다! 
-                // 이제 유니티 물리 콜라이더가 알아서 픽셀을 딱 맞춰서 멈춰줍니다.
-            }
+            // 💡 중력은 여기서 빼지 않습니다.
+            // 바로 위에서 grounded = false 로 바꿨기 때문에, 아래의 '공중 중력 적용' 블록이
+            // 같은 프레임에 반드시 실행됩니다. 예전에는 여기서도 한 번 빼서
+            // 점프를 시작하는 프레임에만 중력이 두 번 적용되고 있었습니다.
+            // 중력 계산 지점을 아래 한 곳으로 통일합니다.
         }
 
         // 공중에 있을 때의 중력 적용
@@ -541,8 +525,11 @@ public class MarioCtrl : MonoBehaviour
             if (GameManager.Instance != null) GameManager.Instance.AddScore(1000, transform.position + Vector3.up);
 
             // 💡 이미 무적 상태인데 별을 또 먹었을 경우를 대비해 시간 리셋
-            StopAllCoroutines(); // (필요하다면 기존 깜빡임 정지)
-            StartCoroutine(StarTextureSwapRoutine());
+            // StopAllCoroutines() 는 피격 무적 깜빡임·변신 연출·클리어 시퀀스까지 함께 죽여서
+            // 마리오가 투명해지거나 무적이 풀리지 않는 상태로 남는 문제가 있었습니다.
+            // 별 코루틴만 참조로 들고 있다가 그것만 정지시킵니다.
+            if (starRoutine != null) StopCoroutine(starRoutine);
+            starRoutine = StartCoroutine(StarTextureSwapRoutine());
         }
     }
 
@@ -741,6 +728,7 @@ public class MarioCtrl : MonoBehaviour
         {
             Debug.LogError("스타 팔레트 텍스처를 인스펙터에 넣어주세요!");
             isStarInvincible = false;
+            starRoutine = null;
             yield break;
         }
 
@@ -797,6 +785,7 @@ public class MarioCtrl : MonoBehaviour
             SoundManager.Instance.PlayBGM(SoundManager.Instance.overworldBGM);
         }
 
+        starRoutine = null; // 정상 종료했으므로 참조를 비움
     }
 
     // 💡 [수정] 실제 스프라이트 렌더러의 텍스처를 바꾸는 함수 (파라미터 3개로 늘어남)
