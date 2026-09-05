@@ -30,6 +30,7 @@ public class MarioCtrl : MonoBehaviour
     [Header("Star Invincibility")]
     public bool isStarInvincible = false; // 현재 별 먹은 상태인지 체크
     public float starDuration = 10f;      // 무적 지속 시간 (10초)
+    private Coroutine starRoutine;        // 별 무적 코루틴 참조 (중복 획득 시 이것만 정지)
 
     // 유니티 밖에서 준비한 3개의 전체 스프라이트 시트(그림 파일)를 넣습니다.
     // 인스펙터에서 0:레드, 1:그린, 2:블랙 순서로 넣어주세요.
@@ -201,7 +202,12 @@ public class MarioCtrl : MonoBehaviour
         }
 
         // 파이어 마리오 상태일 때만 공격 키(보통 'Fire' 또는 특정 키) 감지
-        if (currentState == "Fire" && Input.GetButtonDown("Fire1")) // 예: Left Ctrl 또는 Left Click
+        // 💡 스타 무적 중에는 파이어볼을 막습니다.
+        //    발사 모션(Upper_Shoot)만 다른 아틀라스(throwfireball.png, 34x32)를 쓰는데,
+        //    스타 상체 팔레트는 fire_upper.png(96x24) 리컬러라 _MainTex 를 덮어씌우면
+        //    UV가 어긋나 상체 스프라이트가 깨집니다. (달리기는 FixedUpdate 에서
+        //    Input.GetButton("Fire1") 을 따로 읽으므로 그대로 동작합니다.)
+        if (currentState == "Fire" && !isStarInvincible && Input.GetButtonDown("Fire1")) // 예: Left Ctrl 또는 Left Click
         {
             // 화면에 동시에 파이어볼이 2개까지만 존재하게 제한
             if (GameObject.FindGameObjectsWithTag("FireBall").Length < maxFireballCount) // Coin 태그를 Fireball 전용 태그로 바꾸는 걸 권장
@@ -324,28 +330,11 @@ public class MarioCtrl : MonoBehaviour
 
             jump = false;
 
-            // 공중/바닥을 if문으로 나누지 않고 중력을 무조건 계산합니다!
-            // 올라가는 중이고, 점프 키를 꾹 누르고 있고, 공중일 때만 가벼운 중력 적용
-            if (vel.y > 0 && isJumpButtonHeld && !grounded)
-            {
-                currentGravity = currentGravityHold;
-            }
-            else
-            {
-                currentGravity = currentGravityBase; // 떨어질 때나 평상시엔 무거운 중력
-            }
-
-            // 중력은 매 프레임 무조건 빼줍니다. (콜라이더가 바닥에 완벽히 밀착되게 밀어줌)
-            vel.y -= currentGravity * Time.fixedDeltaTime;
-            vel.y = Mathf.Max(vel.y, -MAX_FALL); // 최대 낙하 속도 제한
-
-            // 땅에 닿아있으면 기본 중력 상태로 리셋만 해줍니다.
-            if (grounded && !jump)
-            {
-                currentGravityBase = STOP_FALL;
-                // 원래 있던 vel.y = 0; 을 지웠습니다! 
-                // 이제 유니티 물리 콜라이더가 알아서 픽셀을 딱 맞춰서 멈춰줍니다.
-            }
+            // 💡 중력은 여기서 빼지 않습니다.
+            // 바로 위에서 grounded = false 로 바꿨기 때문에, 아래의 '공중 중력 적용' 블록이
+            // 같은 프레임에 반드시 실행됩니다. 예전에는 여기서도 한 번 빼서
+            // 점프를 시작하는 프레임에만 중력이 두 번 적용되고 있었습니다.
+            // 중력 계산 지점을 아래 한 곳으로 통일합니다.
         }
 
         // 공중에 있을 때의 중력 적용
@@ -541,8 +530,11 @@ public class MarioCtrl : MonoBehaviour
             if (GameManager.Instance != null) GameManager.Instance.AddScore(1000, transform.position + Vector3.up);
 
             // 💡 이미 무적 상태인데 별을 또 먹었을 경우를 대비해 시간 리셋
-            StopAllCoroutines(); // (필요하다면 기존 깜빡임 정지)
-            StartCoroutine(StarTextureSwapRoutine());
+            // StopAllCoroutines() 는 피격 무적 깜빡임·변신 연출·클리어 시퀀스까지 함께 죽여서
+            // 마리오가 투명해지거나 무적이 풀리지 않는 상태로 남는 문제가 있었습니다.
+            // 별 코루틴만 참조로 들고 있다가 그것만 정지시킵니다.
+            if (starRoutine != null) StopCoroutine(starRoutine);
+            starRoutine = StartCoroutine(StarTextureSwapRoutine());
         }
     }
 
@@ -733,6 +725,12 @@ public class MarioCtrl : MonoBehaviour
     IEnumerator StarTextureSwapRoutine()
     {
         isStarInvincible = true;
+
+        // 💡 발사 직후(0.15초 안에) 별을 먹으면 상체가 Upper_Shoot 상태에 남아
+        //    다른 아틀라스 스프라이트에 스타 텍스처가 덮여 깨져 보입니다.
+        //    별이 시작되는 순간 발사 모션을 확실히 내려줍니다.
+        if (upperAnim != null) upperAnim.SetBool("isShooting", false);
+
         float elapsed = 0f;
         int paletteIndex = 0;
 
@@ -741,6 +739,7 @@ public class MarioCtrl : MonoBehaviour
         {
             Debug.LogError("스타 팔레트 텍스처를 인스펙터에 넣어주세요!");
             isStarInvincible = false;
+            starRoutine = null;
             yield break;
         }
 
@@ -797,41 +796,51 @@ public class MarioCtrl : MonoBehaviour
             SoundManager.Instance.PlayBGM(SoundManager.Instance.overworldBGM);
         }
 
+        starRoutine = null; // 정상 종료했으므로 참조를 비움
     }
 
     // 💡 [수정] 실제 스프라이트 렌더러의 텍스처를 바꾸는 함수 (파라미터 3개로 늘어남)
     void ApplyStarTexture(Texture2D mainTex, Texture2D upperTex, Texture2D lowerTex)
     {
         // ① 작은/슈퍼 마리오일 때
-        if (mainSr.enabled && mainTex != null)
+        if (mainSr.enabled)
         {
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            mainSr.GetPropertyBlock(mpb);
-            mpb.SetTexture("_MainTex", mainTex);
-            mainSr.SetPropertyBlock(mpb);
+            SwapMainTex(mainSr, mainTex);
         }
 
         // ② 파이어 마리오일 때 (상/하체 분리해서 칠해줌)
         if (fireMarioBody.activeSelf)
         {
-            if (upperTex != null && upperAnim != null)
-            {
-                SpriteRenderer upperSr = upperAnim.GetComponent<SpriteRenderer>();
-                MaterialPropertyBlock mpbUpper = new MaterialPropertyBlock();
-                upperSr.GetPropertyBlock(mpbUpper);
-                mpbUpper.SetTexture("_MainTex", upperTex);
-                upperSr.SetPropertyBlock(mpbUpper);
-            }
-
-            if (lowerTex != null && lowerAnim != null)
-            {
-                SpriteRenderer lowerSr = lowerAnim.GetComponent<SpriteRenderer>();
-                MaterialPropertyBlock mpbLower = new MaterialPropertyBlock();
-                lowerSr.GetPropertyBlock(mpbLower);
-                mpbLower.SetTexture("_MainTex", lowerTex);
-                lowerSr.SetPropertyBlock(mpbLower);
-            }
+            if (upperAnim != null) SwapMainTex(upperAnim.GetComponent<SpriteRenderer>(), upperTex);
+            if (lowerAnim != null) SwapMainTex(lowerAnim.GetComponent<SpriteRenderer>(), lowerTex);
         }
+    }
+
+    // 💡 스프라이트의 UV(textureRect)는 자기 원본 아틀라스 크기를 기준으로 잡혀 있습니다.
+    //    그래서 _MainTex 를 갈아끼우려면 교체 텍스처가 원본과 크기·배치가 같아야 하고,
+    //    다르면 엉뚱한 영역을 샘플링해서 스프라이트가 깨져 보입니다.
+    //    (실제 사례: 상체 발사 모션만 throwfireball.png(34x32)를 쓰는데
+    //     스타 상체 팔레트는 fire_upper.png(96x24) 리컬러여서 상체가 깨졌습니다.)
+    //    크기가 맞는 프레임에만 스타 색을 입히고, 아니면 원본 그림을 그대로 보여줍니다.
+    void SwapMainTex(SpriteRenderer sr, Texture2D starTex)
+    {
+        if (sr == null) return;
+
+        Sprite cur = sr.sprite;
+        bool sameAtlas = starTex != null && cur != null && cur.texture != null
+                         && cur.texture.width == starTex.width
+                         && cur.texture.height == starTex.height;
+
+        if (!sameAtlas)
+        {
+            sr.SetPropertyBlock(null); // 덮어쓰기 해제 → 애니메이터의 원본 그림이 그대로 나옴
+            return;
+        }
+
+        MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+        sr.GetPropertyBlock(mpb);
+        mpb.SetTexture("_MainTex", starTex);
+        sr.SetPropertyBlock(mpb);
     }
 
     // 코팅을 벗겨내고 원래 그림으로 되돌리는 함수
